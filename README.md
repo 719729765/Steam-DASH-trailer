@@ -1,5 +1,5 @@
 
-# Steam DASH Trailer
+# Steam官方视频嵌入 Steam DASH Trailer
 
 
 **WordPress 插件：轻松在文章/页面中插入 Steam 官方 DASH Trailer、YouTube、Bilibili 视频，全宽 16:9 自适应播放！**
