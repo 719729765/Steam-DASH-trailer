@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Steam DASH Trailer
+ * Plugin Name: Steam官方视频嵌入 Steam DASH Trailer
  * Description: WordPress 后台编辑器视频按钮，支持 Steam 官方 DASH Trailer 自动拼接播放，全宽 16:9 自适应，同时兼容 YouTube/Bilibili iframe。
  * Version: 3.3
  * Author: 码铃薯
