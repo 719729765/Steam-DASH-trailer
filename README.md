@@ -1,10 +1,4 @@
-好的，我帮你整理成 **完整 GitHub 发布版 README**，已经和你的插件名字 **Steam DASH Trailer** 对应，并保留了所有教程、示例短代码和功能说明。
 
-你可以直接保存为 `README.md` 上传到仓库。
-
----
-
-```markdown
 # Steam DASH Trailer
 
 ![Steam DASH Trailer](https://via.placeholder.com/800x200?text=Steam+DASH+Trailer)
@@ -91,9 +85,4 @@
 
 ```
 
----
-
-如果你需要，我可以帮你再 **加徽章、语法高亮和截图占位**，让 GitHub 页面更酷炫，更像官方插件页面。  
-
-你希望我加吗？
 ```
