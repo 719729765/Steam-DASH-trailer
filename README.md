@@ -1,7 +1,6 @@
 
 # Steam DASH Trailer
 
-![Steam DASH Trailer](https://via.placeholder.com/800x200?text=Steam+DASH+Trailer)
 
 **WordPress 插件：轻松在文章/页面中插入 Steam 官方 DASH Trailer、YouTube、Bilibili 视频，全宽 16:9 自适应播放！**
 
