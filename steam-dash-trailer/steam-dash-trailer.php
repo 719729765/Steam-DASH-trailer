@@ -17,7 +17,45 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Register TinyMCE button (Classic Editor)
+ * 自动获取 Steam Trailer 封面（带缓存）
+ */
+function sdt_get_steam_trailer_poster($url) {
+    if (!preg_match('#store_trailers/(\d+)/#', $url, $m)) {
+        return '';
+    }
+
+    $appid = $m[1];
+    $cache_key = 'sdt_poster_' . md5($appid);
+    $cached = get_transient($cache_key);
+
+    if ($cached !== false) {
+        return $cached;
+    }
+
+    $api = 'https://store.steampowered.com/api/appdetails?appids=' . $appid;
+    $response = wp_remote_get($api, array('timeout' => 5));
+
+    if (is_wp_error($response)) {
+        return '';
+    }
+
+    $json = json_decode(wp_remote_retrieve_body($response), true);
+
+    if (
+        empty($json[$appid]['success']) ||
+        empty($json[$appid]['data']['movies'][0]['thumbnail'])
+    ) {
+        return '';
+    }
+
+    $poster = esc_url_raw($json[$appid]['data']['movies'][0]['thumbnail']);
+    set_transient($cache_key, $poster, DAY_IN_SECONDS);
+
+    return $poster;
+}
+
+/**
+ * TinyMCE 按钮
  */
 function sdt_register_tinymce_plugin() {
     if (!current_user_can('edit_posts') && !current_user_can('edit_pages')) {
@@ -37,7 +75,7 @@ function sdt_register_tinymce_plugin() {
 add_action('admin_init', 'sdt_register_tinymce_plugin');
 
 /**
- * Register Gutenberg block
+ * Gutenberg block
  */
 function sdt_register_gutenberg_block() {
     if (!function_exists('register_block_type')) {
@@ -48,7 +86,7 @@ function sdt_register_gutenberg_block() {
         'steam-dash-block',
         plugin_dir_url(__FILE__) . 'block.js',
         array('wp-blocks', 'wp-element', 'wp-components', 'wp-i18n'),
-        '3.6',
+        '3.7',
         true
     );
 
@@ -63,7 +101,6 @@ add_action('init', 'sdt_register_gutenberg_block');
  */
 function sdt_steam_dash_shortcode($atts) {
     static $player_count = 0;
-    static $players_to_init = array();
 
     $atts = shortcode_atts(array(
         'url'  => '',
@@ -77,13 +114,18 @@ function sdt_steam_dash_shortcode($atts) {
     $url  = esc_url_raw($atts['url']);
     $type = in_array($atts['type'], array('auto', 'steam')) ? $atts['type'] : 'auto';
 
-    // 安全检查：必须为 http 或 https
     if (!preg_match('#^https?://#', $url)) {
         return '';
     }
 
-    // Steam DASH handling
+    /* =======================
+     * Steam DASH
+     * ======================= */
     if ($type === 'steam' || strpos($url, 'steamstatic.com/store_trailers') !== false) {
+
+        $poster = sdt_get_steam_trailer_poster($url);
+
+        // AV1 m4s → h264 mpd
         if (strpos($url, '.m4s') !== false && strpos($url, '/dash_av1/') !== false) {
             $parts = explode('/dash_av1/', $url);
             if (count($parts) === 2) {
@@ -93,7 +135,6 @@ function sdt_steam_dash_shortcode($atts) {
 
         $player_count++;
         $player_id = 'steam-player-' . $player_count;
-        $players_to_init[$player_id] = $url;
 
         if (!wp_script_is('steam-dash-js', 'enqueued')) {
             wp_enqueue_script(
@@ -103,23 +144,60 @@ function sdt_steam_dash_shortcode($atts) {
                 '4.7.4',
                 true
             );
+
+            // 一次性初始化逻辑（有封面 / 无封面双模式）
+            wp_add_inline_script('steam-dash-js', '
+document.addEventListener("DOMContentLoaded", function(){
+
+    // 无封面：自动初始化
+    document.querySelectorAll("video[data-src]:not([data-cover])").forEach(function(video){
+        if(window.dashjs){
+            dashjs.MediaPlayer().create().initialize(video, video.dataset.src, false);
+        }
+    });
+
+    // 有封面：点击初始化
+    document.addEventListener("click", function(e){
+        var cover = e.target.closest(".sdt-cover");
+        if(!cover) return;
+
+        var wrap = cover.closest(".sdt-video-wrap");
+        var video = wrap.querySelector("video");
+
+        cover.style.display = "none";
+        video.style.display = "block";
+
+        if(window.dashjs){
+            dashjs.MediaPlayer().create().initialize(video, video.dataset.src, true);
+        }
+    });
+
+});
+            ');
         }
 
-        // 在 footer 批量初始化所有播放器
-        add_action('wp_footer', function() use ($players_to_init) {
-            $script = 'document.addEventListener("DOMContentLoaded", function(){';
-            foreach ($players_to_init as $id => $url) {
-                $script .= "if(document.getElementById('{$id}') && window.dashjs){dashjs.MediaPlayer().create().initialize(document.getElementById('{$id}'), '{$url}', false);}";
-            }
-            $script .= '});';
-            wp_add_inline_script('steam-dash-js', $script);
-        });
-
         return sprintf(
-            '<div style="position:relative;width:100%%;padding-top:56.25%%;background:#000;">
-                <video id="%s" controls style="position:absolute;top:0;left:0;width:100%%;height:100%%;"></video>
+            '<div class="sdt-video-wrap" style="position:relative;width:100%%;padding-top:56.25%%;background:#000;">
+                %s
+                <video id="%s"
+                       data-src="%s"
+                       %s
+                       controls
+                       style="position:absolute;top:0;left:0;width:100%%;height:100%%;display:%s;">
+                </video>
             </div>',
-            esc_attr($player_id)
+            $poster ? '
+            <div class="sdt-cover" style="position:absolute;top:0;left:0;width:100%;height:100%;background:url('.esc_url($poster).') center/cover no-repeat;cursor:pointer;">
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;background:rgba(0,0,0,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <svg width="36" height="36" viewBox="0 0 36 36">
+                        <path d="M31.3 19.5L10.1 32.4C8.9 33.1 8 32.6 8 31.1V5.4C8 3.9 8.9 3.4 10.1 4.2L31.3 17c1.2.5 1.2 1.7 0 2.5z" fill="#fff"/>
+                    </svg>
+                </div>
+            </div>' : '',
+            esc_attr($player_id),
+            esc_url($url),
+            $poster ? 'data-cover="1"' : '',
+            $poster ? 'none' : 'block'
         );
     }
 
