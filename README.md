@@ -70,11 +70,14 @@
 
 ---
 
+## 插件演示地址（）
+- 插件演示地址1：[www.youzwy.com](https://www.youzwy.com)
+- 插件演示地址2：[game.tachgal.com](https://game.tachgal.com)
+
 ## 开发者信息
 
 * 作者：码铃薯
 * 官网：[https://www.tudoucode.cn](https://www.tudoucode.cn)
-* GitHub：[待填写仓库链接]
 
 ---
 
